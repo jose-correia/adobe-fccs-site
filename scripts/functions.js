@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import {
   buildBlock,
   decorateBlocks,
@@ -68,7 +69,6 @@ async function loadBlock(block) {
         try {
           return await blockModule.default(b, window);
         } catch (error) {
-          // eslint-disable-next-line no-console
           console.log(`failed to load module for ${blockName}`, error);
           return null;
         }
@@ -217,7 +217,6 @@ async function loadStyles({ styles, inlineStyles }) {
       }
       return mjml;
     }
-    console.log(`failed to load stylesheet: ${stylesheet}`);
     return '';
   };
   const styles$ = styles
@@ -246,7 +245,11 @@ export function decorateDefaultContent(wrapper, { textClass = '', buttonClass = 
     .reduce((mjml, par) => {
       const img = par.querySelector('img');
       if (img) {
-        return `${mjml}<mj-image mj-class="${imageClass}" src="${img.src}" />`;
+        const { width } = img;
+        const isIcon = Array.from(img?.parentElement?.classList || []).includes('icon');
+        if (!isIcon) {
+          return `${mjml}<mj-image width="${width}" mj-class="${imageClass}" src="${img.src}" />`;
+        }
       }
       if (par.matches('.button-container')) {
         const link = par.querySelector(':scope > a');
@@ -265,21 +268,26 @@ export function decorateDefaultContent(wrapper, { textClass = '', buttonClass = 
 
 export async function toMjml(main) {
   const mjml2html$ = loadMjml();
+  let counter = 0;
+
   const main$ = Promise.all([...main.querySelectorAll(':scope > .section')]
     .map(async (section) => {
+      counter += 1;
       const [sectionBody, sectionHead] = reduceMjml(await Promise.all([...section.children]
         .map(async (wrapper) => {
           if (wrapper.matches('.default-content-wrapper')) {
             return Promise.resolve([`
-            <mj-section mj-class="mj-content-section">
+            <mj-section mj-class="${counter === 1 ? 'mj-first' : ''} mj-content-section">
               <mj-column mj-class="mj-content-column">
-                ${decorateDefaultContent(wrapper,
-              { textClass: 'mj-content-text', imageClass: 'mj-content-image', buttonClass: 'mj-content-button' }
-            )}
+                ${decorateDefaultContent(
+    wrapper,
+    { textClass: 'mj-content-text', imageClass: 'mj-content-image', buttonClass: 'mj-content-button' },
+  )}
               </mj-column>
             </mj-section>
           `]);
           }
+
           const block = wrapper.querySelector('.block');
           if (block) {
             const decorator = await loadBlock(block);
@@ -295,8 +303,8 @@ export async function toMjml(main) {
         })));
 
       return [
-        `<mj-wrapper>${sectionBody}</mj-wrapper>`,
-        sectionHead
+        `<mj-wrapper mj-class="mj-content-wrapper ${section.previousElementSibling == null ? 'mj-first' : ''} ${section.nextElementSibling == null || (section.nextElementSibling && section.nextElementSibling.nextElementSibling == null) ? 'mj-last' : ''}">${sectionBody}</mj-wrapper>`,
+        sectionHead,
       ];
     }));
   const styles$ = loadStyles({
@@ -327,17 +335,6 @@ function buildHeroBlock(main) {
   }
 }
 
-function buildIntroBlock(main) {
-  const h1 = main.firstElementChild.querySelector(':scope > h1');
-  if (h1) {
-    const textSiblings = [...main.firstElementChild.querySelectorAll(':scope > :where(p,h1,h2,h3,h4,h5,h6,ul,ol)')];
-    const placeholder = document.createElement('div');
-    h1.replaceWith(placeholder);
-    const block = buildBlock('intro', { elems: textSiblings });
-    placeholder.replaceWith(block);
-  }
-}
-
 /**
  * Builds all synthetic blocks in a container element.
  * @param {Element} main The container element
@@ -345,9 +342,7 @@ function buildIntroBlock(main) {
 function buildAutoBlocks(main) {
   try {
     buildHeroBlock(main);
-    buildIntroBlock(main);
   } catch (error) {
-    // eslint-disable-next-line no-console
     console.error('Auto Blocking failed', error);
   }
 }
@@ -400,10 +395,10 @@ function decoratePersonalization(main) {
  * @param {Element} main The main element
  */
 // eslint-disable-next-line import/prefer-default-export
-export function decorateMain(main) {
+export async function decorateMain(main) {
   decorateTemplateAndTheme();
   decorateButtons(main);
-  decorateIcons(main);
+  await decorateIcons(main);
   buildAutoBlocks(main);
   decorateSections(main);
   decorateBlocks(main);

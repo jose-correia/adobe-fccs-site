@@ -2,14 +2,16 @@ import { decorateDefaultContent } from '../../scripts/functions.js';
 
 export default function decorate(block) {
   const cols = [...block.firstElementChild.children];
-  const filteredClassList = [...block.classList]
-    .filter((cls) => cls !== 'columns' && cls !== 'block');
-  const type = filteredClassList.length ? `-${filteredClassList[0]}` : ''; 
-    
-  let mjml = `<mj-section mj-class="mj-colums${type}-cols-${cols.length}">`;
+  let mjml = `<mj-section mj-class="mj-column-section mj-columns-cols-${cols.length}">`;
   cols.forEach((div, index) => {
+    let col = '';
+    if (index === 0) {
+      col = 'first';
+    } else if (index === cols.length - 1) {
+      col = 'last';
+    }
     mjml += `
-      <mj-column mj-class="mj-columns${type}-col mj-columns${type}-col-${index + 1} mj-columns${type}-col-${index === 0 ? 'first' : (index === cols.length - 1 ? 'last' : '')}">
+      <mj-column mj-class="mj-columns-col mj-columns-col-${index + 1} mj-columns-col-${col}">
         ${decorateDefaultContent(div)}
       </mj-column>
     `;

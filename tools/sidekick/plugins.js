@@ -74,6 +74,39 @@ const copyHtml = () => {
     }
 };
 
+const inline_img = (html) => {
+  var images = html.contentDocument.getElementsByTagName('img'); 
+  
+  for(var i = 0; i < images.length; i++) {
+
+    var img = images[i];
+
+    var h = img.height
+    var w = img.width
+
+    var c = document.createElement('canvas');
+      
+    c.height = h;
+    c.width = w;
+    var ctx = c.getContext('2d');
+    ctx.clearRect(0, 0, c.width, c.height)
+    ctx.drawImage(img, 0, 0, c.width, c.height)
+    
+    if( img.classList.contains('video')) {
+      var controls = img.nextElementSibling;
+      ctx.drawImage(controls, 0, 0, c.width, c.height);
+      controls.remove();
+    } 
+
+    img.src = c.toDataURL("image/png");
+
+    // reset height and width to original value
+    img.height = h 
+    img.width = w
+  }  
+  return html.contentWindow.document.documentElement.outerHTML
+}
+
 const downloadHtml = () => {
   const iframe = document.getElementById('__emailFrame');
     if (iframe) {
@@ -81,7 +114,8 @@ const downloadHtml = () => {
       const title = h1 ? h1.innerText : 'New E-Mail';
       const subject = `Subject: ${title}`;
       const to = 'To: noreply@adobe.com';
-      const html = iframe.srcdoc;
+      const html = inline_img(iframe);
+
       const fileName = title
         .replaceAll(/\W+/g, '-')
         .replaceAll(/[-]{2,}/g, '-')
@@ -118,9 +152,12 @@ const downloadHtml = () => {
     }
 }
 
-const sk = document.querySelector('helix-sidekick');
-sk.addEventListener('custom:copyHtml', copyHtml);
+
+
+const sk = document.querySelector('helix-sidekick')
 sk.addEventListener('custom:downloadHtml', downloadHtml);
+sk.addEventListener('custom:copyHtml', copyHtml);
+
 
 window.addEventListener('message', ({ data, origin, source }) => {
   if (data === 'mjml2html' && origin.match('localhost(:\\d+)?$|.*\\.hlx\\.(page|live)$')) {
